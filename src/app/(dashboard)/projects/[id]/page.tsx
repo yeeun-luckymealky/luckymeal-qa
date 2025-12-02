@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, Sparkles, Download, ExternalLink, Loader2 } from 'lucide-react'
+import { ArrowLeft, Sparkles, Download, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +13,7 @@ import { ScenarioList } from '@/components/scenario/scenario-list'
 import { ScenarioDetailModal } from '@/components/scenario/scenario-detail-modal'
 import { TestRunList } from '@/components/test-run/test-run-list'
 import { MemberList } from '@/components/project/member-list'
+import { PrdEditorModal } from '@/components/project/prd-editor-modal'
 
 interface TestCase {
   id: string
@@ -85,11 +86,11 @@ export default function ProjectDetailPage() {
   const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isGenerating, setIsGenerating] = useState(false)
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [users, setUsers] = useState<UserInfo[]>([])
   const [testRuns, setTestRuns] = useState<TestRun[]>([])
+  const [isPrdModalOpen, setIsPrdModalOpen] = useState(false)
 
   const projectId = params.id as string
 
@@ -139,36 +140,6 @@ export default function ProjectDetailPage() {
       toast.error('오류 발생')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleGenerate = async () => {
-    setIsGenerating(true)
-
-    try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        toast.error('시나리오 생성 실패', {
-          description: result.error?.message || '다시 시도해주세요.',
-        })
-        return
-      }
-
-      toast.success(`${result.data.count}개의 시나리오가 생성되었습니다`)
-      fetchProject() // 새로고침
-    } catch (error) {
-      toast.error('오류 발생', {
-        description: '잠시 후 다시 시도해주세요.',
-      })
-    } finally {
-      setIsGenerating(false)
     }
   }
 
@@ -278,18 +249,9 @@ export default function ProjectDetailPage() {
               </a>
             </Button>
           )}
-          <Button onClick={handleGenerate} disabled={isGenerating}>
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                생성 중...
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                {project.scenarios.length > 0 ? '재생성' : '시나리오 생성'}
-              </>
-            )}
+          <Button onClick={() => setIsPrdModalOpen(true)}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            {project.scenarios.length > 0 ? 'PRD 수정 / 재생성' : '시나리오 생성'}
           </Button>
         </div>
       </div>
@@ -362,20 +324,11 @@ export default function ProjectDetailPage() {
               <Sparkles className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">시나리오가 없습니다</h3>
               <p className="text-muted-foreground mb-4">
-                &quot;시나리오 생성&quot; 버튼을 클릭하여 AI가 테스트 시나리오를 생성하도록 하세요.
+                PRD를 입력하고 AI가 테스트 시나리오를 생성하도록 하세요.
               </p>
-              <Button onClick={handleGenerate} disabled={isGenerating}>
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    생성 중...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    시나리오 생성
-                  </>
-                )}
+              <Button onClick={() => setIsPrdModalOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                시나리오 생성
               </Button>
             </div>
           ) : (
@@ -395,6 +348,15 @@ export default function ProjectDetailPage() {
         onClose={handleModalClose}
         onStatusChange={handleStatusChange}
         users={users}
+      />
+
+      {/* PRD 수정 모달 */}
+      <PrdEditorModal
+        projectId={projectId}
+        currentPrd={project.prdContent}
+        open={isPrdModalOpen}
+        onClose={() => setIsPrdModalOpen(false)}
+        onGenerated={fetchProject}
       />
     </div>
   )
