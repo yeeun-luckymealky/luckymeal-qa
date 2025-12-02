@@ -21,6 +21,7 @@ model User {
 
   // Relations
   projects      Project[]
+  projectMembers ProjectMember[]
   assignedScenarios Scenario[] @relation("AssignedScenarios")
   executedScenarios Scenario[] @relation("ExecutedScenarios")
 
@@ -53,11 +54,38 @@ model Project {
   user          User      @relation(fields: [userId], references: [id])
   scenarios     Scenario[]
   testRuns      TestRun[]
+  members       ProjectMember[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   @@index([userId])
+}
+
+// ============ ProjectMember (팀원 초대) ============
+
+model ProjectMember {
+  id          String    @id @default(cuid())
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role        MemberRole @default(MEMBER)
+
+  invitedAt   DateTime  @default(now())
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+enum MemberRole {
+  OWNER     // 프로젝트 생성자
+  ADMIN     // 관리자 (멤버 초대 가능)
+  MEMBER    // 일반 멤버 (테스트만 가능)
 }
 
 enum Platform {

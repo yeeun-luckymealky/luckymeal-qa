@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ScenarioList } from '@/components/scenario/scenario-list'
 import { ScenarioDetailModal } from '@/components/scenario/scenario-detail-modal'
 import { TestRunList } from '@/components/test-run/test-run-list'
+import { MemberList } from '@/components/project/member-list'
 
 interface TestCase {
   id: string
@@ -331,16 +332,24 @@ export default function ProjectDetailPage() {
         </Card>
       </div>
 
-      {/* 테스트 런 */}
-      <Card>
-        <CardContent className="pt-6">
-          <TestRunList
-            projectId={projectId}
-            testRuns={testRuns}
-            onTestRunCreated={fetchTestRuns}
-          />
-        </CardContent>
-      </Card>
+      {/* 테스트 런 & 팀원 */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardContent className="pt-6">
+            <TestRunList
+              projectId={projectId}
+              testRuns={testRuns}
+              onTestRunCreated={fetchTestRuns}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <MemberList projectId={projectId} />
+          </CardContent>
+        </Card>
+      </div>
 
       {/* 시나리오 목록 */}
       <Card>
