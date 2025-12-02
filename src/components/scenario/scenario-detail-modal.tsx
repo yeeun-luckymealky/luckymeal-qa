@@ -29,6 +29,8 @@ import {
   Clock,
   ExternalLink,
   User,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +67,7 @@ interface ScenarioDetailModalProps {
   open: boolean
   onClose: () => void
   onStatusChange: (id: string, status: string, data?: { failureNote?: string; bugTicketUrl?: string; assigneeId?: string | null }) => void
+  onTestCasesChange?: () => void
   users?: UserInfo[]
 }
 
@@ -102,6 +105,7 @@ export function ScenarioDetailModal({
   open,
   onClose,
   onStatusChange,
+  onTestCasesChange,
   users = [],
 }: ScenarioDetailModalProps) {
   const [selectedStatus, setSelectedStatus] = useState(scenario?.status || 'NOT_RUN')
@@ -110,6 +114,11 @@ export function ScenarioDetailModal({
   const [assigneeId, setAssigneeId] = useState<string | null>(scenario?.assigneeId || null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // 테스트 케이스 추가 폼
+  const [isAddingTestCase, setIsAddingTestCase] = useState(false)
+  const [newAction, setNewAction] = useState('')
+  const [newExpected, setNewExpected] = useState('')
+
   // 시나리오가 변경되면 상태 초기화
   useEffect(() => {
     if (scenario) {
@@ -117,8 +126,61 @@ export function ScenarioDetailModal({
       setFailureNote(scenario.failureNote || '')
       setBugTicketUrl(scenario.bugTicketUrl || '')
       setAssigneeId(scenario.assigneeId || null)
+      setIsAddingTestCase(false)
+      setNewAction('')
+      setNewExpected('')
     }
   }, [scenario])
+
+  const handleAddTestCase = async () => {
+    if (!scenario || !newAction.trim() || !newExpected.trim()) {
+      toast.error('동작과 예상 결과를 모두 입력하세요')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/scenarios/${scenario.id}/test-cases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: newAction, expected: newExpected }),
+      })
+
+      if (!response.ok) {
+        toast.error('테스트 케이스 추가 실패')
+        return
+      }
+
+      toast.success('테스트 케이스가 추가되었습니다')
+      setNewAction('')
+      setNewExpected('')
+      setIsAddingTestCase(false)
+      onTestCasesChange?.()
+    } catch {
+      toast.error('오류 발생')
+    }
+  }
+
+  const handleDeleteTestCase = async (testCaseId: string) => {
+    if (!scenario) return
+    if (!confirm('이 테스트 케이스를 삭제하시겠습니까?')) return
+
+    try {
+      const response = await fetch(
+        `/api/scenarios/${scenario.id}/test-cases?testCaseId=${testCaseId}`,
+        { method: 'DELETE' }
+      )
+
+      if (!response.ok) {
+        toast.error('테스트 케이스 삭제 실패')
+        return
+      }
+
+      toast.success('테스트 케이스가 삭제되었습니다')
+      onTestCasesChange?.()
+    } catch {
+      toast.error('오류 발생')
+    }
+  }
 
   if (!scenario) return null
 
@@ -163,10 +225,20 @@ export function ScenarioDetailModal({
 
         {/* 테스트 케이스 */}
         <div>
-          <h4 className="font-medium mb-3">테스트 케이스</h4>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-medium">테스트 케이스</h4>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddingTestCase(true)}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              추가
+            </Button>
+          </div>
           <div className="space-y-3">
             {scenario.testCases.map((tc) => (
-              <div key={tc.id} className="bg-gray-50 rounded-lg p-3">
+              <div key={tc.id} className="bg-gray-50 rounded-lg p-3 group">
                 <div className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
                     {tc.step}
@@ -179,9 +251,57 @@ export function ScenarioDetailModal({
                       <span className="font-medium">예상:</span> {tc.expected}
                     </p>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDeleteTestCase(tc.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-red-500" />
+                  </Button>
                 </div>
               </div>
             ))}
+
+            {/* 테스트 케이스 추가 폼 */}
+            {isAddingTestCase && (
+              <div className="bg-blue-50 rounded-lg p-3 space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="newAction">동작</Label>
+                  <Input
+                    id="newAction"
+                    placeholder="사용자가 수행할 동작을 입력하세요"
+                    value={newAction}
+                    onChange={(e) => setNewAction(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newExpected">예상 결과</Label>
+                  <Input
+                    id="newExpected"
+                    placeholder="예상되는 결과를 입력하세요"
+                    value={newExpected}
+                    onChange={(e) => setNewExpected(e.target.value)}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsAddingTestCase(false)
+                      setNewAction('')
+                      setNewExpected('')
+                    }}
+                  >
+                    취소
+                  </Button>
+                  <Button size="sm" onClick={handleAddTestCase}>
+                    추가
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

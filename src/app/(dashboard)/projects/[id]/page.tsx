@@ -347,6 +347,7 @@ export default function ProjectDetailPage() {
         open={isModalOpen}
         onClose={handleModalClose}
         onStatusChange={handleStatusChange}
+        onTestCasesChange={fetchProject}
         users={users}
       />
 
