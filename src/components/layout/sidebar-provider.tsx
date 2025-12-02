@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useSyncExternalStore } from 'react'
 
 interface SidebarContextType {
   isOpen: boolean
@@ -11,28 +11,30 @@ interface SidebarContextType {
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
-function getInitialState(): boolean {
-  if (typeof window === 'undefined') return true
+// localStorage 구독 함수
+function subscribe(callback: () => void) {
+  window.addEventListener('storage', callback)
+  return () => window.removeEventListener('storage', callback)
+}
+
+function getSnapshot(): boolean {
   const saved = localStorage.getItem('sidebar-open')
   return saved === null ? true : saved === 'true'
 }
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = useState(true)
-  const [mounted, setMounted] = useState(false)
+function getServerSnapshot(): boolean {
+  return true // SSR에서는 기본값 true
+}
 
-  // 클라이언트에서만 localStorage 값 적용
-  useEffect(() => {
-    setIsOpen(getInitialState())
-    setMounted(true)
-  }, [])
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  // useSyncExternalStore로 localStorage와 동기화
+  const storedValue = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  const [isOpen, setIsOpen] = useState(storedValue)
 
   // localStorage에 상태 저장
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem('sidebar-open', String(isOpen))
-    }
-  }, [isOpen, mounted])
+    localStorage.setItem('sidebar-open', String(isOpen))
+  }, [isOpen])
 
   const toggle = () => setIsOpen((prev) => !prev)
   const close = () => setIsOpen(false)
