@@ -1,0 +1,224 @@
+// 럭키밀 QA 도구용 스키마
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============ Auth ============
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique  // @monandeul.com만 허용
+  name          String
+  password      String
+  role          Role      @default(QA_ENGINEER)
+
+  // Relations
+  projects      Project[]
+  assignedScenarios Scenario[] @relation("AssignedScenarios")
+  executedScenarios Scenario[] @relation("ExecutedScenarios")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+enum Role {
+  ADMIN
+  PM
+  QA_ENGINEER
+  DEVELOPER
+}
+
+// ============ Project ============
+
+model Project {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  prdContent    String    @db.Text
+  prdNotionUrl  String?   // Notion PRD 링크
+
+  appVersion    String?   // 타겟 앱 버전 (예: "2.3.0")
+  platform      Platform  // 대상 플랫폼
+  releaseDate   DateTime? // 예정 릴리즈 일자
+
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  scenarios     Scenario[]
+  testRuns      TestRun[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+enum Platform {
+  CONSUMER_APP
+  SELLER_APP
+  BOTH
+}
+
+// ============ Scenario ============
+
+model Scenario {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+
+  category      ScenarioCategory
+  priority      Priority  @default(MEDIUM)
+  deviceType    DeviceType @default(BOTH)
+
+  order         Int       @default(0)
+
+  // 테스트 실행 상태
+  status        TestStatus @default(NOT_RUN)
+  executedAt    DateTime?
+  executedById  String?
+  executedBy    User?     @relation("ExecutedScenarios", fields: [executedById], references: [id])
+
+  // 담당자
+  assigneeId    String?
+  assignee      User?     @relation("AssignedScenarios", fields: [assigneeId], references: [id])
+
+  // 버그 연결
+  bugTicketUrl  String?   // Linear/Jira 링크
+  failureNote   String?   @db.Text  // 실패 시 메모
+
+  // Relations
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testCases     TestCase[]
+  attachments   Attachment[]
+  testRunResults TestRunResult[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([executedById])
+}
+
+enum ScenarioCategory {
+  // 기본
+  POSITIVE
+  NEGATIVE
+  EDGE_CASE
+
+  // 럭키밀 특화
+  PAYMENT       // 결제/환불
+  PICKUP        // 픽업 플로우
+  LOCATION      // 위치/지도
+  NOTIFICATION  // 푸시 알림
+  TIME_SENSITIVE // 마감 시간 관련
+  INVENTORY     // 재고 동기화
+  AUTH          // 인증/가입
+  NETWORK       // 네트워크 상태
+}
+
+enum Priority {
+  CRITICAL  // 릴리즈 블로커
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum DeviceType {
+  ANDROID
+  IOS
+  BOTH
+}
+
+enum TestStatus {
+  NOT_RUN
+  PASS
+  FAIL
+  BLOCKED   // 다른 버그로 테스트 불가
+  SKIPPED   // 의도적 스킵
+}
+
+// ============ TestCase ============
+
+model TestCase {
+  id          String    @id @default(cuid())
+  step        Int
+  action      String    // 수행 동작
+  expected    String    // 기대 결과
+
+  scenarioId  String
+  scenario    Scenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([scenarioId])
+}
+
+// ============ Attachment ============
+
+model Attachment {
+  id          String    @id @default(cuid())
+  fileName    String
+  fileUrl     String
+  fileType    String    // image/png, video/mp4 등
+
+  scenarioId  String
+  scenario    Scenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+
+  @@index([scenarioId])
+}
+
+// ============ TestRun (릴리즈별 테스트 실행) ============
+
+model TestRun {
+  id          String    @id @default(cuid())
+  name        String    // "v2.3.0 RC1 QA", "v2.3.0 Regression"
+
+  appVersion  String
+  environment Environment @default(STAGING)
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  results     TestRunResult[]
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([projectId])
+}
+
+model TestRunResult {
+  id          String    @id @default(cuid())
+
+  status      TestStatus
+  note        String?
+
+  testRunId   String
+  testRun     TestRun   @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  scenarioId  String
+  scenario    Scenario  @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  executedAt  DateTime  @default(now())
+
+  @@unique([testRunId, scenarioId])
+  @@index([testRunId])
+  @@index([scenarioId])
+}
+
+enum Environment {
+  STAGING
+  PRODUCTION
+}
