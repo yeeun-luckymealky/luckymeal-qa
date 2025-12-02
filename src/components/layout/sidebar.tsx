@@ -6,10 +6,12 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   FolderKanban,
+  User,
 } from 'lucide-react'
 
 const navigation = [
   { name: '대시보드', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'My', href: '/my', icon: User },
   { name: '프로젝트', href: '/projects', icon: FolderKanban },
 ]
 
