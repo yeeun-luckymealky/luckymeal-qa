@@ -6,15 +6,11 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   FolderKanban,
-  PlayCircle,
-  Settings
 } from 'lucide-react'
 
 const navigation = [
   { name: '대시보드', href: '/dashboard', icon: LayoutDashboard },
   { name: '프로젝트', href: '/projects', icon: FolderKanban },
-  { name: '테스트 실행', href: '/test-runs', icon: PlayCircle },
-  { name: '설정', href: '/settings', icon: Settings },
 ]
 
 export function Sidebar() {
